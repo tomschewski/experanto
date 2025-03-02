@@ -260,6 +260,7 @@ class ScreenInterpolator(Interpolator):
         # create mapping from image index to file index
         self._num_frames = [t.num_frames for t in self.trials]
         self._first_frame_idx = [t.first_frame_idx for t in self.trials]
+        self._trial_idx = [t.trial_idx for t in self.trials]
         self._data_file_idx = np.concatenate(
             [np.full(t.num_frames, i) for i, t in enumerate(self.trials)]
         )
@@ -316,36 +317,48 @@ class ScreenInterpolator(Interpolator):
         assert np.all(np.diff(valid_times) > 0), "Times must be sorted"
         idx = (
             np.searchsorted(self.timestamps, valid_times) - 1
-        )  # convert times to frame indices
+        )  # convert times to corresponding file index
+        
         assert np.all(
             (idx >= 0) & (idx < len(self.timestamps))
         ), "All times must be within the valid range"
-        data_file_idx = self._data_file_idx[idx]
-
+        
         # Go through files, load them and extract all frames
-        unique_file_idx = np.unique(data_file_idx)
+        unique_file_idx = np.unique(idx)
         out = np.zeros([len(valid_times)] + list(self._image_size))
-        print(f'This is image_size {self._image_size}')
         for u_idx in unique_file_idx:
             data = self.trials[u_idx].get_data()
+
+            ### making sure images and videos have same dims to ensure proper handeling
             if len(data.shape) == 2:
                 data = np.expand_dims(data, axis=0)
-            idx_for_this_file = np.where(self._data_file_idx[idx] == u_idx)
+
+            ### This is just all idx where each individual trial was shown
+            idx_for_this_file = np.where(idx == u_idx)
+
+            if self.trials[u_idx].modality == 'video':
+                ### calculating the difference in time between the timestamp for stimuli and given one
+                temporal_offset = valid_times[idx_for_this_file] - self.timestamps[idx][idx_for_this_file]
+                frame_idx = np.array(30 * temporal_offset, dtype=int) ### make framerate not hardcoded 
+                frames = data[frame_idx]
+
+            else:
+                frames = data # here our single image is just our frame and we dont need no index
+
             if self.rescale:
-                orig_size = data[idx[idx_for_this_file] - self._first_frame_idx[u_idx]]
+                ### Here we want to ensure for videos that we get the correct frame for images the index must be 0
                 out[idx_for_this_file] = np.stack(
                     [
                         self.rescale_frame(np.asarray(frame, dtype=np.float32).T).T
-                        for frame in orig_size
+                        for frame in frames
                     ]
                 )
             else:
-                out[idx_for_this_file] = data[
-                    idx[idx_for_this_file] - self._first_frame_idx[u_idx]
-                ]
+                out[idx_for_this_file] = data[frame_idx]
         if self.normalize:
             out = self.normalize_data(out)
         return out, valid
+        
 
     def rescale_frame(self, frame: np.array) -> np.array:
         """
@@ -364,6 +377,7 @@ class ScreenTrial:
         meta_data: dict,
         image_size: tuple,
         first_frame_idx: int,
+        trial_idx: int,
         num_frames: int,
     ) -> None:
         f = Path(file_name)
@@ -373,6 +387,7 @@ class ScreenTrial:
         self.modality = meta_data.get("modality")
         self.image_size = image_size
         self.first_frame_idx = first_frame_idx
+        self.trial_idx = trial_idx
         self.num_frames = num_frames
 
     @staticmethod
@@ -398,7 +413,8 @@ class ImageTrial(ScreenTrial):
             data,
             tuple(data.get("image_size")),
             data.get("first_frame_idx"),
-            1,
+            data.get('trial_index'),
+            data.get('num_frames'),
         )
 
 
@@ -409,6 +425,7 @@ class VideoTrial(ScreenTrial):
             data,
             tuple(data.get("image_size")),
             data.get("first_frame_idx"),
+            data.get('trial_index'),
             data.get("num_frames"),
         )
 
@@ -420,9 +437,10 @@ class BlankTrial(ScreenTrial):
             data,
             tuple(data.get("image_size")),
             data.get("first_frame_idx"),
+            data.get('trial_index'),
             1,
         )
-        self.interleave_value = data.get("interleave_value")
+        self.interleave_value = 128#data.get("interleave_value")
 
     def get_data(self) -> np.array:
         return np.full((1,) + self.image_size, self.interleave_value)
