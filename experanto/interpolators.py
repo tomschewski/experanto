@@ -354,7 +354,8 @@ class ScreenInterpolator(Interpolator):
                     ]
                 )
             else:
-                out[idx_for_this_file] = data[frame_idx]
+                out[idx_for_this_file] = frames
+                
         if self.normalize:
             out = self.normalize_data(out)
         return out, valid

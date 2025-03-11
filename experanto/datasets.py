@@ -46,8 +46,11 @@ class SimpleChunkedDataset(Dataset):
         s = idx * self.chunk_size
         times = self._sample_times[s : s + self.chunk_size]
         data, _ = self._experiment.interpolate(times)
-        phase_shifts = self._experiment.devices["responses"]._phase_shifts
-        timestamps_neurons = (times - times.min())[:, None] + phase_shifts[None, :]
+        if self._experiment.devices["responses"].use_phase_shifts:
+            phase_shifts = self._experiment.devices["responses"]._phase_shifts ### not compatible for data without phaseshifts/missing info
+            timestamps_neurons = (times - times.min())[:, None] + phase_shifts[None, :]
+        else:
+            timestamps_neurons = (times - times.min())[:, None]
         data["timestamps"] = timestamps_neurons
 
         # Hack-2: add batch dimension for screen
@@ -343,9 +346,9 @@ class ChunkDataset(Dataset):
     def _read_trials(self) -> None:
         screen = self._experiment.devices["screen"]
         self._trials = [t for t in screen.trials]
-        start_idx = np.array([t.first_frame_idx for t in self._trials])
-        self._start_times = screen.timestamps[start_idx]
-        self._end_times = np.append(screen.timestamps[start_idx[1:]], np.inf)
+        #start_idx = np.array([t.first_frame_idx for t in self._trials])
+        self._start_times = screen.timestamps
+        self._end_times = np.append(self._start_times[1:], np.inf)
         self.meta_conditions = {}
         for k in self.modality_config.screen.valid_condition.keys():
             self.meta_conditions[k] = [t.get_meta(k) if t.get_meta(k) is not None else "blank" for t in self._trials]
@@ -458,8 +461,7 @@ class ChunkDataset(Dataset):
             data, _ = self._experiment.interpolate(times, device=device_name)
             out[device_name] = self.transforms[device_name](data).squeeze(0) # remove dim0 for response/eye_tracker/treadmill
 
-        phase_shifts = self._experiment.devices["responses"]._phase_shifts
-        times_with_phase_shifts = (times - times.min())[:, None] + phase_shifts[None, :]
-        out["timestamps"] = torch.from_numpy(times_with_phase_shifts)
+        #phase_shifts = self._experiment.devices["responses"]._phase_shifts
+        #times_with_phase_shifts = (times - times.min())[:, None] + phase_shifts[None, :]
+        out["timestamps"] = torch.from_numpy(times)
         return out
-
