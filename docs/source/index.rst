@@ -3,7 +3,7 @@
 
 **experanto** is a Python package to interpolate recordings and stimuli of neuroscience experiments.
 
-`Issues with the package can be submited at our GitHub Issues page <https://github.com/sensorium-competition/experanto/issues>`_.
+Issues with the package can be submited at our GitHub Issues page `<https://github.com/sensorium-competition/experanto/issues>`_.
 
 ------------
 
@@ -21,4 +21,5 @@
    concepts/demo_data
    concepts/demo_experiment
    concepts/demo_dataset
+   concepts/demo_multisession
 
