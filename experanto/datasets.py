@@ -605,7 +605,29 @@ class ChunkDataset(Dataset):
 
         final_mask = duration_mask & sample_mask_from_meta_conditions
 
+        ### added to ensure that only full chunks for all modalites get retuned
+
+        # Check other modalities to ensure the timepoints fall within their measurement periods
+        for modality in self.device_names:
+            if modality == "screen":
+                continue  # Skip screen (already handled)
+                
+            # Get start and end times for this modality
+            modality_start, modality_end = self._experiment.get_valid_range(modality)
+            
+            # Check if each timepoint falls within the modality's measurement period
+            # We need to check both the start and end of the chunk
+            chunk_starts = self._screen_sample_times[possible_indices]
+            chunk_ends = self._screen_sample_times[possible_indices + chunk_size - 1]
+            
+            # A timepoint is valid if both the start and end of the chunk fall within the modality's period
+            modality_mask = (chunk_starts >= modality_start) & (chunk_ends <= modality_end)
+            
+            # Update final mask
+            final_mask = final_mask & modality_mask
+
         return self._screen_sample_times[possible_indices[final_mask]]
+
 
     def shuffle_valid_screen_times(self) -> None:
         """

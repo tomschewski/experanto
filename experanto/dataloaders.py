@@ -42,9 +42,9 @@ def get_multisession_dataloader(paths: List[str],
 
     for i, (path, cfg) in enumerate(zip(paths, configs)):
         dataset_name = path.split("experiment_")[1]
-        dataset = ChunkDataset(path, **config['dataset'],)
+        dataset = ChunkDataset(path, **cfg['dataset'],)
         dataloaders[dataset_name] = MultiEpochsDataLoader(dataset,
-                                               **cfg.dataloader,
+                                               **cfg['dataloader'],
                                                )
     return LongCycler(dataloaders)
 

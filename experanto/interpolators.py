@@ -273,7 +273,7 @@ class ScreenInterpolator(Interpolator):
         metadatas, keys = self.read_combined_meta()
 
         for key, metadata in zip(keys, metadatas):
-            data_file_name = self.root_folder / "data" / f"{key}.npy"
+            data_file_name = self.root_folder.parent / 'stimuli'
             # Pass the cache_trials parameter when creating trials
             self.trials.append(ScreenTrial.create(
                 data_file_name, 
@@ -388,7 +388,7 @@ class ScreenTrial:
         num_frames: int,
         cache_data: bool = False,
     ) -> None:
-        self.data_file_name = data_file_name
+        self.data_file_name = data_file_name / meta_data.get('image_name')
         self._meta_data = meta_data
         self.modality = meta_data.get("modality")
         self.image_size = image_size
@@ -409,7 +409,7 @@ class ScreenTrial:
 
     def get_data_(self) -> np.array:
         """Base implementation for loading/generating data"""
-        return np.load(self.data_file_name)
+        return np.load(self.data_file_name.with_suffix('.npy'))
 
     def get_data(self) -> np.array:
         """Wrapper that handles caching"""
@@ -459,7 +459,7 @@ class EncodedvideoTrial(ScreenTrial):
         self.video_decoder = self.get_data(meta_data.get("file_format"))
 
     def get_data(self, file_format) -> VideoDecoder:
-        return VideoDecoder(self.data_file_name.with_suffix(file_format))
+        return VideoDecoder(+ self.data_file_name.with_suffix(file_format))
         
 
 class BlankTrial(ScreenTrial):
