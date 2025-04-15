@@ -319,7 +319,7 @@ class ScreenInterpolator(Interpolator):
                         resized_frames.append(resized_frame.squeeze(0))  # Remove batch dimension
                     
                     # Stack all resized frames back into a single tensor
-                    out[idx_for_this_file] = torch.stack(resized_frames)
+                    out[idx_for_this_file] = torch.stack(resized_frames).to(out.dtype)
                     
                 
                 else:
@@ -459,7 +459,7 @@ class EncodedvideoTrial(ScreenTrial):
         self.video_decoder = self.get_data(meta_data.get("file_format"))
 
     def get_data(self, file_format) -> VideoDecoder:
-        return VideoDecoder(+ self.data_file_name.with_suffix(file_format))
+        return VideoDecoder(self.data_file_name.with_suffix(file_format))
         
 
 class BlankTrial(ScreenTrial):

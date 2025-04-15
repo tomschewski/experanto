@@ -611,20 +611,33 @@ class ChunkDataset(Dataset):
         for modality in self.device_names:
             if modality == "screen":
                 continue  # Skip screen (already handled)
-                
+            
             # Get start and end times for this modality
             modality_start, modality_end = self._experiment.get_valid_range(modality)
             
-            # Check if each timepoint falls within the modality's measurement period
-            # We need to check both the start and end of the chunk
-            chunk_starts = self._screen_sample_times[possible_indices]
-            chunk_ends = self._screen_sample_times[possible_indices + chunk_size - 1]
+            # Calculate new possible times and indices and repeat as we did with screen
+            modality_time = np.arange(modality_start, modality_end, 1.0 / self.sampling_rates[modality])
+            n_samples = len(modality_time) - chunk_size + 1
+            possible_indices_modality = np.arange(n_samples)
+        
+            chunk_starts = modality_time[possible_indices_modality]
+            chunk_ends = modality_time[possible_indices_modality + chunk_size - 1]
             
             # A timepoint is valid if both the start and end of the chunk fall within the modality's period
             modality_mask = (chunk_starts >= modality_start) & (chunk_ends <= modality_end)
-            
-            # Update final mask
-            final_mask = final_mask & modality_mask
+
+            # add resizing of modality mask to fit the size of the screen mask
+            diff = len(final_mask) - len(modality_mask)
+
+            if diff > 0:
+                # Handle case where modality mask is shorter
+                padded_modality_mask = np.zeros(len(final_mask), dtype=bool)
+                padded_modality_mask[diff:] = modality_mask
+                
+                final_mask = final_mask & padded_modality_mask
+            else:
+                # Handle case where modality mask is longer
+                final_mask = final_mask & modality_mask[-len(final_mask):]
 
         return self._screen_sample_times[possible_indices[final_mask]]
 
