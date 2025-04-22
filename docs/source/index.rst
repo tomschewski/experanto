@@ -20,6 +20,7 @@ Issues with the package can be submited at our GitHub Issues page `<https://gith
         
    concepts/demo_data
    concepts/demo_experiment
+   concepts/demo_configs
    concepts/demo_dataset
    concepts/demo_multisession
 

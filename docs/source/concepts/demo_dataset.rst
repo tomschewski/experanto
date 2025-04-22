@@ -32,60 +32,26 @@ To load a dataset, follow the steps below:
     import matplotlib.pyplot as plt
     from collections import OrderedDict
 
-    # Define root folder containing experiment data
-    root_folder = '../data/allen_data'
-    sampling_rate = 8  # Global sampling rate
-    chunk_size = 32  # Chunk size for dataset loading
+    from omegaconf import OmegaConf, open_dict
+    from experanto.configs import DEFAULT_CONFIG as cfg
 
-    # Define modality configuration for training set (screen and response interpolation)
-    train_dataset = ChunkDataset(
-        root_folder=f'{root_folder}/experiment_951980471',
-        global_sampling_rate=sampling_rate,
-        global_chunk_size=chunk_size,
-        modality_config={
-            'screen': {
-                'sampling_rate': None,
-                'chunk_size': None,
-                'valid_condition': {
-                    'tier': 'train',
-                    'stim_type': 'stimulus.Frame',  # Include both images and videos
-                    'stim_type': 'stimulus.Clip'
-                },
-                'offset': 0,
-                'sample_stride': 4,
-                # Necessary for the Allen dataset to handle blank spaces after stimuli
-                'include_blanks': True,
-                'transforms': {
-                    'Normalize': {
-                        '_target_': 'torchvision.transforms.Normalize',
-                        'mean': 80.0,
-                        'std': 60.0
-                    },
-                    'Resize': {
-                        '_target_': 'torchvision.transforms.Resize',
-                        'size': [144, 256]
-                    },
-                    'CenterCrop': {
-                        '_target_': 'torchvision.transforms.CenterCrop',
-                        'size': 144
-                    },
-                    'greyscale': True  # Convert to greyscale data
-                },
-                'interpolation': {}
-            },
-            'responses': {
-                'sampling_rate': None,
-                'chunk_size': None,
-                'offset': 0.1,
-                'transforms': {
-                    'standardize': True
-                },
-                'interpolation': {
-                    'interpolation_mode': 'nearest_neighbor'
-                }
-            },
-        }
-    )
+    cfg.dataset.modality_config.screen.transforms.Resize.size = [144,144] 
+    cfg.dataset.modality_config.screen.interpolation.rescale_size = [144, 144]
+    cfg.dataset.modality_config.screen.transforms.greyscale = True
+    modality_cfg = cfg.dataset.modality_config
+
+    # Extract only 'screen' and 'responses' or other modalities if necessecary for single session loading
+    selected_modalities = OmegaConf.create({
+        'screen': modality_cfg.screen,
+        'responses': modality_cfg.responses
+    })
+
+    root_folder = '../data/allen_data'
+    sampling_rate = 60
+    chunk_size = 60 # since we also use video data we always use chunks of images to also consider temporal developements
+
+    train_dataset = ChunkDataset(root_folder=f'{root_folder}/experiment_951980471_train', global_sampling_rate=sampling_rate,
+            global_chunk_size=chunk_size, modality_config = selected_modalities)
 
 This configuration ensures that:
 
@@ -113,10 +79,9 @@ This will output something like:
 
 .. code-block:: text
 
-    dict_keys(['screen', 'responses', 'timestamps'])
+    dict_keys(['screen', 'responses'])
     This is shape torch.Size([1, 32, 144, 144]) for modality screen
     This is shape torch.Size([32, 12]) for modality responses
-    This is shape torch.Size([32, 1]) for modality timestamps
 
 Defining DataLoaders
 ---------------------
@@ -135,16 +100,14 @@ To confirm that the **DataLoader** works as expected, we can iterate over it and
 
     # Interpolation showcase using the data_loaders
     for batch_idx, batch_data in enumerate(data_loaders['train']):
-        # batch_data is a dictionary with keys 'screen', 'responses', and 'timestamps'
+        # batch_data is a dictionary with keys 'screen', 'responses'
         screen_data = batch_data['screen']
         responses = batch_data['responses']
-        timestamps = batch_data['timestamps']
         
         # Print or inspect the batch
         print(f"Batch {batch_idx}:")
         print("Screen Data:", screen_data.shape)
         print("Responses:", responses.shape)
-        print("Timestamps:", timestamps.shape)
         break
 
 This will output something like:
@@ -154,4 +117,3 @@ This will output something like:
     Batch 0:
     Screen Data: torch.Size([15, 1, 32, 144, 144])
     Responses: torch.Size([15, 32, 12])
-    Timestamps: torch.Size([15, 32, 1])
