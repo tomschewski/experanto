@@ -15,7 +15,7 @@ A single experiment can be loaded using the following approach:
     from experanto.experiment import Experiment
 
     # Set the experiment folder as the root directory
-    root_folder = '../data/allen_data/experiment_951980471'
+    root_folder = '../data/allen_data/experiment_951980471_train'
 
     # Initialize the Experiment object
     e = Experiment(root_folder)

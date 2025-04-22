@@ -6,6 +6,13 @@ This section describes the dataset configuration used to load experiments into t
 Default YAML Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. code-block:: python
+
+  from omegaconf import OmegaConf, open_dict
+  from experanto.configs import DEFAULT_CONFIG as cfg
+
+  print(OmegaConf.to_yaml(cfg))
+
 .. code-block:: yaml
 
     dataset:
