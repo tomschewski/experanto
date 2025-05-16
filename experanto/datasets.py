@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchvision
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
 from torch.utils.data import Dataset
 from torchvision.transforms.v2 import ToImage, ToDtype, Compose, Lambda
-from omegaconf import OmegaConf
-from hydra.utils import instantiate
 
 from .configs import DEFAULT_MODALITY_CONFIG
 from .experiment import Experiment
@@ -337,7 +337,7 @@ class ChunkDataset(Dataset):
         # the _valid_screen_times are the indices from which the starting points for the chunks will be taken
         # sampling stride is used to reduce the number of starting points by the stride
         # default of stride is 1, so all starting points are used
-        self._valid_screen_times = self._full_valid_sample_times[::self.sample_stride]
+        self._valid_screen_times = self._full_valid_sample_times[:: self.sample_stride]
         self.transforms = self.initialize_transforms()
 
     def _read_trials(self) -> None:
@@ -348,7 +348,10 @@ class ChunkDataset(Dataset):
         self._end_times = np.append(screen.timestamps[start_idx[1:]], np.inf)
         self.meta_conditions = {}
         for k in self.modality_config.screen.valid_condition.keys():
-            self.meta_conditions[k] = [t.get_meta(k) if t.get_meta(k) is not None else "blank" for t in self._trials]
+            self.meta_conditions[k] = [
+                t.get_meta(k) if t.get_meta(k) is not None else "blank"
+                for t in self._trials
+            ]
 
     def initialize_statistics(self) -> None:
         """
@@ -362,15 +365,26 @@ class ChunkDataset(Dataset):
             # If modality should be normalized, load respective statistics from file.
             if self.modality_config[device_name].transforms.get("normalization", False):
                 mode = self.modality_config[device_name].transforms.normalization
-                assert mode in ['standardize', 'normalize'], f"transforms.normalization should be in 'standardize' or 'normalize', not {mode}"
-                means = np.load(self._experiment.devices[device_name].root_folder / "meta/means.npy")
-                stds = np.load(self._experiment.devices[device_name].root_folder / "meta/stds.npy")
-                if mode == 'standardize':
+                assert mode in [
+                    "standardize",
+                    "normalize",
+                ], f"transforms.normalization should be in 'standardize' or 'normalize', not {mode}"
+                means = np.load(
+                    self._experiment.devices[device_name].root_folder / "meta/means.npy"
+                )
+                stds = np.load(
+                    self._experiment.devices[device_name].root_folder / "meta/stds.npy"
+                )
+                if mode == "standardize":
                     # If modality should only be standarized, set means to 0.
                     means = np.zeros_like(means)
 
-                self._statistics[device_name]["mean"] = means.reshape(1, -1)  # (n, 1) -> (1, n) for broadcasting in __get_item__
-                self._statistics[device_name]["std"] = stds.reshape(1, -1)  # same as above
+                self._statistics[device_name]["mean"] = means.reshape(
+                    1, -1
+                )  # (n, 1) -> (1, n) for broadcasting in __get_item__
+                self._statistics[device_name]["std"] = stds.reshape(
+                    1, -1
+                )  # same as above
 
     def initialize_transforms(self):
         """
@@ -380,8 +394,18 @@ class ChunkDataset(Dataset):
         transforms = {}
         for device_name in self.device_names:
             if device_name == "screen":
-                add_channel = Lambda(lambda x: torch.from_numpy(x[:, None, ...]) if len(x.shape) == 3 else torch.from_numpy(x))
-                transform_list = [v for v in self.modality_config.screen.transforms.values() if isinstance(v, torch.nn.Module)]
+                add_channel = Lambda(
+                    lambda x: (
+                        torch.from_numpy(x[:, None, ...])
+                        if len(x.shape) == 3
+                        else torch.from_numpy(x)
+                    )
+                )
+                transform_list = [
+                    v
+                    for v in self.modality_config.screen.transforms.values()
+                    if isinstance(v, torch.nn.Module)
+                ]
                 transform_list.insert(0, add_channel)
             else:
                 transform_list = [Compose([ToImage(), ToDtype(torch.float32, scale=True)])]
@@ -389,7 +413,10 @@ class ChunkDataset(Dataset):
             # Normalization.
             if self.modality_config[device_name].transforms.get("normalization", False):
                 transform_list.append(
-                    torchvision.transforms.Normalize(self._statistics[device_name]["mean"], self._statistics[device_name]["std"])
+                    torchvision.transforms.Normalize(
+                        self._statistics[device_name]["mean"],
+                        self._statistics[device_name]["std"],
+                    )
                 )
 
             transforms[device_name] = Compose(transform_list)
@@ -406,15 +433,23 @@ class ChunkDataset(Dataset):
         sample_in_meta_condition = {}
         for k, v in self.modality_config["screen"]["valid_condition"].items():
             sample_in_meta = []
-            for i, (condition, start, end) in enumerate(zip(self.meta_conditions[k], self._start_times, self._end_times)):
-                if condition == v or (condition == "blank" and self.modality_config["screen"]["include_blanks"]):
+            for i, (condition, start, end) in enumerate(
+                zip(self.meta_conditions[k], self._start_times, self._end_times)
+            ):
+                if condition == v or (
+                    condition == "blank"
+                    and self.modality_config["screen"]["include_blanks"]
+                ):
                     sample_in_meta.append(
-                        (self._screen_sample_times >= start) & (self._screen_sample_times < end)
+                        (self._screen_sample_times >= start)
+                        & (self._screen_sample_times < end)
                     )
             sample_in_meta_condition[k] = np.stack(sample_in_meta).sum(0).astype(bool)
         return sample_in_meta_condition
 
-    def get_full_valid_sample_times(self, ) -> Iterable:
+    def get_full_valid_sample_times(
+        self,
+    ) -> Iterable:
         """
         iterates through all sample times and checks if they could be used as
         start times, eg if the next `self.chunk_sizes["screen"]` points are still valid
@@ -423,12 +458,15 @@ class ChunkDataset(Dataset):
             valid_times: np.array of valid starting points
         """
         valid_times = []
-        for i, _ in enumerate(self._screen_sample_times[:-self.chunk_sizes["screen"]]):
+        for i, _ in enumerate(self._screen_sample_times[: -self.chunk_sizes["screen"]]):
             maybe_all_true = []
-            correct_duration = self._screen_sample_times[i + self.chunk_sizes["screen"]] < self.end_time
+            correct_duration = (
+                self._screen_sample_times[i + self.chunk_sizes["screen"]]
+                < self.end_time
+            )
             maybe_all_true.append(correct_duration)
             for k, v in self._sample_in_meta_condition.items():
-                maybe_all_true.append(np.all(v[i: i + self.chunk_sizes["screen"]]))
+                maybe_all_true.append(np.all(v[i : i + self.chunk_sizes["screen"]]))
             if np.all(maybe_all_true):
                 valid_times.append(self._screen_sample_times[i])
         return np.stack(valid_times)
@@ -440,7 +478,11 @@ class ChunkDataset(Dataset):
         If the sample stride is larger than 1, this function will shuffle the starting points and select a subset of them.
         """
         times = self._full_valid_sample_times
-        self._valid_screen_times = np.sort(np.random.choice(times, size=len(times) // self.sample_stride, replace=False))
+        self._valid_screen_times = np.sort(
+            np.random.choice(
+                times, size=len(times) // self.sample_stride, replace=False
+            )
+        )
 
     def __len__(self):
         return len(self._valid_screen_times)
@@ -456,10 +498,11 @@ class ChunkDataset(Dataset):
             times = np.linspace(s, s + chunk_s, chunk_size, endpoint=False)
             times = times + self.modality_config[device_name].offset
             data, _ = self._experiment.interpolate(times, device=device_name)
-            out[device_name] = self.transforms[device_name](data).squeeze(0) # remove dim0 for response/eye_tracker/treadmill
+            out[device_name] = self.transforms[device_name](data).squeeze(
+                0
+            )  # remove dim0 for response/eye_tracker/treadmill
 
         phase_shifts = self._experiment.devices["responses"]._phase_shifts
         times_with_phase_shifts = (times - times.min())[:, None] + phase_shifts[None, :]
         out["timestamps"] = torch.from_numpy(times_with_phase_shifts)
         return out
-

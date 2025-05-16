@@ -1,8 +1,12 @@
 from hydra import compose, initialize, initialize_config_dir
 
-
-with initialize(version_base=None, config_path="../configs/", ):
-    cfg = compose(config_name="default", )
+with initialize(
+    version_base=None,
+    config_path="../configs/",
+):
+    cfg = compose(
+        config_name="default",
+    )
 
 DEFAULT_CONFIG = cfg
 DEFAULT_DATASET_CONFIG = cfg.dataset
