@@ -1,8 +1,9 @@
-from contextlib import contextmanager
 import shutil
-import yaml
+from contextlib import contextmanager
 from pathlib import Path
+
 import numpy as np
+import yaml
 
 SCREEN_ROOT = Path("tests/screen_data")
 
@@ -24,18 +25,24 @@ def create_screen_data(n_frames=10, frame_shape=(64, 64), t_end=10.0, fps=10.0):
 
             np.save(data_dir / f"{i:05d}.npy", frame)
             with open(meta_dir / f"{i:05d}.yml", "w") as f:
-                yaml.dump({
-                    "first_frame_idx": i,
-                    "image_size": list(frame_shape),
-                    "modality": "image",
-                    "tier": "train"
-                }, f)
+                yaml.dump(
+                    {
+                        "first_frame_idx": i,
+                        "image_size": list(frame_shape),
+                        "modality": "image",
+                        "tier": "train",
+                    },
+                    f,
+                )
 
         with open(SCREEN_ROOT / "meta.yml", "w") as f:
-            yaml.dump({
-                "modality": "screen",
-                "frame_rate": fps,
-            }, f)
+            yaml.dump(
+                {
+                    "modality": "screen",
+                    "frame_rate": fps,
+                },
+                f,
+            )
 
         yield timestamps
 

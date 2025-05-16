@@ -10,7 +10,7 @@ import torchvision
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from torch.utils.data import Dataset
-from torchvision.transforms.v2 import ToImage, ToDtype, Compose, Lambda
+from torchvision.transforms.v2 import Compose, Lambda, ToDtype, ToImage
 
 from .configs import DEFAULT_MODALITY_CONFIG
 from .experiment import Experiment
@@ -408,8 +408,10 @@ class ChunkDataset(Dataset):
                 ]
                 transform_list.insert(0, add_channel)
             else:
-                transform_list = [Compose([ToImage(), ToDtype(torch.float32, scale=True)])]
-            
+                transform_list = [
+                    Compose([ToImage(), ToDtype(torch.float32, scale=True)])
+                ]
+
             # Normalization.
             if self.modality_config[device_name].transforms.get("normalization", False):
                 transform_list.append(
