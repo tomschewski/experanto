@@ -1,13 +1,20 @@
 import numpy as np
 import torch
-    
+
+
 class MultiEpochsDataLoader(torch.utils.data.DataLoader):
-    """ solves bug to keep all workers initialized across epochs.
+    """solves bug to keep all workers initialized across epochs.
     From https://discuss.pytorch.org/t/enumerate-dataloader-slow/87778
     and
     https://github.com/huggingface/pytorch-image-models/blob/d72ac0db259275233877be8c1d4872163954dfbb/timm/data/loader.py#L209-L238
     """
-    def __init__(self, *args, shuffle_each_epoch=True, **kwargs, ):
+
+    def __init__(
+        self,
+        *args,
+        shuffle_each_epoch=True,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._DataLoader__initialized = False
         self.batch_sampler = _RepeatSampler(self.batch_sampler)
@@ -19,16 +26,16 @@ class MultiEpochsDataLoader(torch.utils.data.DataLoader):
         return len(self.batch_sampler.sampler)
 
     def __iter__(self):
-        if self.shuffle_each_epoch and hasattr(self.dataset, "shuffle_valid_screen_times"):
+        if self.shuffle_each_epoch and hasattr(
+            self.dataset, "shuffle_valid_screen_times"
+        ):
             self.dataset.shuffle_valid_screen_times()
         for i in range(len(self)):
             yield next(self.iterator)
 
 
-
-
 class _RepeatSampler(object):
-    """ Sampler that repeats forever.
+    """Sampler that repeats forever.
 
     Args:
         sampler (Sampler)

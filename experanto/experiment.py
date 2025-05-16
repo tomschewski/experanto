@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .interpolators import Interpolator
 from .configs import DEFAULT_MODALITY_CONFIG
+from .interpolators import Interpolator
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,9 @@ class Experiment:
                 log.info(f"Skipping {d.name} data... ")
                 continue
             log.info(f"Parsing {d.name} data... ")
-            dev = Interpolator.create(d, **self.modality_config[d.name]["interpolation"])
+            dev = Interpolator.create(
+                d, **self.modality_config[d.name]["interpolation"]
+            )
             self.devices[d.name] = dev
             self.start_time = dev.start_time
             self.end_time = dev.end_time
