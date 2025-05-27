@@ -5,7 +5,6 @@ on:
     branches:
       - '**'
   pull_request:
-    types: [opend, closed]
     branches:
       - '**'
 
@@ -37,8 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
-      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+      (github.event_name == 'pull_request'y && github.event.action == 'closed' && github.event.pull_request.merged == true)
 
     steps:
       - name: Checkout repository
@@ -69,8 +67,14 @@ jobs:
               echo "No formatting changes to commit."
             fi
 
-          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "PR opened or merged: Running black and isort in check mode"
+          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.repository }}" != "${{ github.event.repository.full_name }}" ]]; then
+            echo "PR event: Running black and isort in check mode"
+            black --check . || { echo "Black formatting issues found. Run 'black .' to fix."; exit 1; }
+            isort --check-only . || { echo "isort import order issues found. Run 'isort .' to fix."; exit 1; }
+          fi
+
+          elif [[ "${{ github.event_name }}" == "pull_request" && github.event.action == 'closed' && github.event.pull_request.merged == true]]; then
+            echo "Merge commit detected: Running black and isort in check mode"
             black --check . || { echo "Black formatting issues found. Run 'black .' to fix."; exit 1; }
             isort --check-only . || { echo "isort import order issues found. Run 'isort .' to fix."; exit 1; }
           fi
