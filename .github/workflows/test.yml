@@ -12,6 +12,12 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'pull_request' &&
+        github.repository != github.event.pull_request.head.repo.full_name
+      )
 
     steps:
       - name: Checkout code
@@ -36,7 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+      (
+        github.event_name == 'pull_request' &&
+        github.repository != github.event.pull_request.head.repo.full_name
+      )
 
     steps:
       - name: Checkout repository
@@ -55,7 +64,7 @@ jobs:
       - name: Run Black and Isort
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.repository }}" == "${{ github.event.repository.full_name }}" ]]; then
-            echo "Push event: Running black and isort with auto-format and commit"
+            echo "Push event in same repo: Running black and isort with auto-format and commit"
             black .
             isort .
             git config user.name "github-actions"
@@ -67,13 +76,11 @@ jobs:
               echo "No formatting changes to commit."
             fi
 
-          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.repository }}" != "${{ github.event.repository.full_name }}" ]]; then
-            echo "PR event: Running black and isort in check mode"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "PR from fork: Running black and isort in check mode"
             black --check . || { echo "Black formatting issues found. Run 'black .' to fix."; exit 1; }
             isort --check-only . || { echo "isort import order issues found. Run 'isort .' to fix."; exit 1; }
 
-          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            echo "Merge commit detected: Running black and isort in check mode"
-            black --check . || { echo "Black formatting issues found. Run 'black .' to fix."; exit 1; }
-            isort --check-only . || { echo "isort import order issues found. Run 'isort .' to fix."; exit 1; }
+          else
+            echo "Not a forked PR and not a push. Skipping format."
           fi
