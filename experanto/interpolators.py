@@ -5,16 +5,6 @@ import os
 import re
 import typing
 import warnings
-
-
-
-
-
-
-
-
-
-
 from abc import abstractmethod
 from pathlib import Path
 
@@ -35,8 +25,6 @@ class Interpolator:
         self.valid_interval = None
 
     def load_meta(self):
-
-
 
         with open(self.root_folder / "meta.yml") as f:
             meta = yaml.load(f, Loader=yaml.SafeLoader)
